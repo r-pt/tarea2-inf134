@@ -6,6 +6,7 @@
 #include <ctime>
 using namespace std;
 
+<<<<<<< HEAD
 // ===================
 // Estructuras y límites para el .map
 // ===================
@@ -183,6 +184,45 @@ void leerMap(
 // ===================
 // Tu clase Jugador y resto del código sigue aquí
 // ===================
+=======
+class enemigo {
+    private:
+        string nombre;
+        int vida;
+        int ataque;
+        float precision;
+        int velocidad;
+        float probabilidad;
+    public:
+        enemigo(string n = "", int v = 0, int a = 0, float p = 0.0f, int vel = 0, float prob = 0.0f)
+            : nombre(n), vida(v), ataque(a), precision(p), velocidad(vel), probabilidad(prob) {}
+
+        string getnombre() const { return nombre; }
+        int getVida() const { return vida; }
+        int getAtaque() const { return ataque; }
+        float getPrecision() const { return precision; }
+        int getVelocidad() const { return velocidad; }
+        float getProbabilidad() const { return probabilidad; }
+
+        void setVida(int v) { vida = v; }
+
+        void recibirDano(int dano) { 
+            vida -= dano; 
+            if (vida < 0) vida = 0;
+        }
+        
+        bool estaMuerto() const { return vida <= 0; }
+
+        void mostrarEstado() const {
+            cout << nombre << " - Vida: " << vida 
+                 << " | Ataque: " << ataque 
+                 << " | Precisión: " << precision * 100 << "%"
+                 << " | Velocidad: " << velocidad << endl;
+
+        }
+};
+
+>>>>>>> 6884afb4c8ca53d1ec8b890abc7d625352cfea4d
 class Jugador {
 private:
     int vida;
@@ -235,15 +275,19 @@ public:
         }
     }
 
+<<<<<<< HEAD
     // NOTA: Debes definir la clase enemigo para que esto funcione
     /*
     int atacar(enemigo& enemigo) const {
         int dano = ataque;
+=======
+    void atacar(enemigo& e) const {
+>>>>>>> 6884afb4c8ca53d1ec8b890abc7d625352cfea4d
         if ((rand() % 100) < (precision * 100)) {
-            enemigo.recibirDano(dano);
-            return dano;
+            e.recibirDano(ataque);
+            cout << "¡Ataque exitoso! Causaste " << ataque << " de daño.\n";
         } else {
-            return 0;
+            cout << "¡Fallaste el ataque!\n";
         }
     }
     */
@@ -273,6 +317,7 @@ public:
     }
 };
 
+<<<<<<< HEAD
 // ===================
 // Ejemplo de uso en main
 // ===================
@@ -293,4 +338,65 @@ int main() {
 
     // ... resto de tu juego ...
     return 0;
+=======
+void combatir(Jugador& jugador, enemigo& rival) {
+    cout << "\n--- COMBATE INICIADO ---\n";
+    jugador.mostrarEstado();
+    rival.mostrarEstado();
+
+    while (jugador.estaVivo() && !rival.estaMuerto()) {
+        if (jugador.getVelocidad() >= rival.getVelocidad()) {
+            cout << "\nJugador ataca primero.\n";
+
+            if ((rand() % 100) < (jugador.getPrecision() * 100)) {
+                rival.recibirDano(jugador.getAtaque());
+                cout << "Atacas a " << rival.getnombre() << ". ";
+                cout << rival.getnombre() << " recibe " << jugador.getAtaque() << " de daño.\n";
+            } else {
+                cout << rival.getnombre() << " esquiva tu ataque.\n";
+            }
+
+            if (!rival.estaMuerto()) {
+                if ((rand() % 100) < (rival.getPrecision() * 100)) {
+                    jugador.recibirDano(rival.getAtaque());
+                    cout << rival.getnombre() << " te golpea. ";
+                    cout << "Recibes " << rival.getAtaque() << " de daño.\n";
+                } else {
+                    cout << "Esquivaste el ataque de " << rival.getnombre() << ".\n";
+                }
+            }
+
+        } else {
+            cout << "\n" << rival.getnombre() << " ataca primero.\n";
+
+            if ((rand() % 100) < (rival.getPrecision() * 100)) {
+                jugador.recibirDano(rival.getAtaque());
+                cout << rival.getnombre() << " te golpea. ";
+                cout << "Recibes " << rival.getAtaque() << " de daño.\n";
+            } else {
+                cout << "Esquivaste el ataque de " << rival.getnombre() << ".\n";
+            }
+
+            if (jugador.estaVivo()) {
+                if ((rand() % 100) < (jugador.getPrecision() * 100)) {
+                    rival.recibirDano(jugador.getAtaque());
+                    cout << "Atacas a " << rival.getnombre() << ". ";
+                    cout << rival.getnombre() << " recibe " << jugador.getAtaque() << " de daño.\n";
+                } else {
+                    cout << rival.getnombre() << " esquiva tu ataque.\n";
+                }
+            }
+        }
+
+        cout << "\nEstado actual:\n";
+        jugador.mostrarEstado();
+        rival.mostrarEstado();
+    }
+
+    if (jugador.estaVivo()) {
+        cout << "\n¡Ganaste el combate!\n";
+    } else {
+        cout << "\nHas sido derrotado...\n";
+    }
+>>>>>>> 6884afb4c8ca53d1ec8b890abc7d625352cfea4d
 }
