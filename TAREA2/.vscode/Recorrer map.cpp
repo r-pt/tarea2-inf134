@@ -1,35 +1,46 @@
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <sstream>
+#include <cstring>
 #include <cstdlib>
 #include <ctime>
 using namespace std;
 
-// ===================
-// Estructuras y límites para el .map
-// ===================
-struct Habitacion {
+// Estructura para una habitación
+struct NodoHabitacion {
     int id;
     char nombre[64];
     char descripcion[256];
+    char tipo[16]; // INICIO, FIN, EVENTO, COMBATE
+    NodoHabitacion* izquierda; // Primera conexión
+    NodoHabitacion* centro;    // Segunda conexión
+    NodoHabitacion* derecha;   // Tercera conexión
+
+    NodoHabitacion(int id, const char* nombre, const char* descripcion, const char* tipo)
+        : id(id), izquierda(nullptr), centro(nullptr), derecha(nullptr) {
+        strncpy(this->nombre, nombre, 63);
+        strncpy(this->descripcion, descripcion, 255);
+        strncpy(this->tipo, tipo, 15);
+    }
 };
 
-struct Arco {
-    int origen;
-    int destino;
-};
-
-struct Enemigo {
+// Estructura para un enemigo
+struct NodoEnemigo {
     char nombre[64];
     int vida;
     int ataque;
     int velocidad;
     float precision;
     float probabilidad;
+    NodoEnemigo* siguiente;
+
+    NodoEnemigo(const char* nombre, int vida, int ataque, int velocidad, float precision, float probabilidad)
+        : vida(vida), ataque(ataque), velocidad(velocidad), precision(precision), probabilidad(probabilidad), siguiente(nullptr) {
+        strncpy(this->nombre, nombre, 63);
+    }
 };
 
-struct Evento {
+// Estructura para un evento
+struct NodoEvento {
     char nombre[64];
     float probabilidad;
     char descripcion[128];
@@ -37,152 +48,20 @@ struct Evento {
     char efectoA[32];
     char opcionB[64];
     char efectoB[32];
+    NodoEvento* siguiente;
+
+    NodoEvento(const char* nombre, float probabilidad, const char* descripcion, const char* opcionA, const char* efectoA, const char* opcionB, const char* efectoB)
+        : probabilidad(probabilidad), siguiente(nullptr) {
+        strncpy(this->nombre, nombre, 63);
+        strncpy(this->descripcion, descripcion, 127);
+        strncpy(this->opcionA, opcionA, 63);
+        strncpy(this->efectoA, efectoA, 31);
+        strncpy(this->opcionB, opcionB, 63);
+        strncpy(this->efectoB, efectoB, 31);
+    }
 };
 
-struct Mejora {
-    char descripcion[64];
-};
-
-#define MAX_HABITACIONES 20
-#define MAX_ARCOS 30
-#define MAX_ENEMIGOS 10
-#define MAX_EVENTOS 10
-#define MAX_MEJORAS 10
-
-// ===================
-// Función para leer el archivo .map
-// ===================
-void leerMap(
-    const char* nombreArchivo,
-    Habitacion habitaciones[], int& numHabitaciones,
-    Arco arcos[], int& numArcos,
-    Enemigo enemigos[], int& numEnemigos,
-    Evento eventos[], int& numEventos,
-    Mejora mejoras[], int& numMejoras
-) {
-    ifstream archivo(nombreArchivo);
-    if (!archivo.is_open()) {
-        cout << "No se pudo abrir el archivo: " << nombreArchivo << endl;
-        return;
-    }
-
-    string linea;
-    string seccion = "";
-    int cantidad = 0;
-
-    numHabitaciones = 0;
-    numArcos = 0;
-    numEnemigos = 0;
-    numEventos = 0;
-    numMejoras = 0;
-
-    while (getline(archivo, linea)) {
-        // Quitar espacios al inicio y fin
-        while (!linea.empty() && isspace(linea[0])) linea.erase(0, 1);
-        while (!linea.empty() && isspace(linea.back())) linea.pop_back();
-        if (linea.empty()) continue;
-
-        // Detectar secciones
-        if (linea == "ARCOS") {
-            seccion = "arcos";
-            cantidad = 0;
-            continue;
-        }
-        if (linea == "ENEMIGOS") {
-            seccion = "enemigos";
-            cantidad = 0;
-            continue;
-        }
-        if (linea == "EVENTOS") {
-            seccion = "eventos";
-            cantidad = 0;
-            continue;
-        }
-        if (linea == "MEJORAS DE COMBATE") {
-            seccion = "mejoras";
-            continue;
-        }
-        // Habitaciones y finales: antes de "ARCOS"
-        if (seccion == "" && linea.find("->") == string::npos && linea.find("(FIN)") == string::npos && isdigit(linea[0])) {
-            seccion = "habitaciones";
-        }
-
-        // Procesar cada sección
-        if (seccion == "arcos") {
-            if (cantidad == 0) {
-                cantidad = stoi(linea);
-                continue;
-            }
-            size_t pos = linea.find("->");
-            if (pos != string::npos && numArcos < MAX_ARCOS) {
-                arcos[numArcos].origen = stoi(linea.substr(0, pos));
-                arcos[numArcos].destino = stoi(linea.substr(pos + 2));
-                numArcos++;
-            }
-            cantidad--;
-            if (cantidad == 0) seccion = "";
-        } else if (seccion == "enemigos") {
-            if (cantidad == 0) {
-                cantidad = stoi(linea);
-                continue;
-            }
-            if (numEnemigos < MAX_ENEMIGOS) {
-                stringstream ss(linea);
-                string nombre, temp;
-                getline(ss, nombre, '|');
-                strncpy(enemigos[numEnemigos].nombre, nombre.c_str(), 63);
-                getline(ss, temp, '|'); enemigos[numEnemigos].vida = stoi(temp.substr(temp.find(' ')));
-                getline(ss, temp, '|'); enemigos[numEnemigos].ataque = stoi(temp.substr(temp.find(' ')));
-                getline(ss, temp, '|'); enemigos[numEnemigos].velocidad = stoi(temp.substr(temp.find(' ')));
-                getline(ss, temp, '|'); enemigos[numEnemigos].precision = stof(temp.substr(temp.find(' ')));
-                getline(ss, temp, '|'); enemigos[numEnemigos].probabilidad = stof(temp.substr(temp.find(' ')));
-                numEnemigos++;
-            }
-            cantidad--;
-            if (cantidad == 0) seccion = "";
-        } else if (seccion == "eventos") {
-            if (cantidad == 0) {
-                cantidad = stoi(linea);
-                continue;
-            }
-            if (linea == "&" && numEventos < MAX_EVENTOS) {
-                Evento& evento = eventos[numEventos];
-                getline(archivo, linea); strncpy(evento.nombre, linea.c_str(), 63);
-                getline(archivo, linea); evento.probabilidad = stof(linea.substr(linea.find(' ')));
-                getline(archivo, linea); strncpy(evento.descripcion, linea.c_str(), 127);
-                getline(archivo, linea); strncpy(evento.opcionA, linea.substr(3).c_str(), 63);
-                getline(archivo, linea); strncpy(evento.efectoA, linea.c_str(), 31);
-                getline(archivo, linea); strncpy(evento.opcionB, linea.substr(3).c_str(), 63);
-                getline(archivo, linea); strncpy(evento.efectoB, linea.c_str(), 31);
-                numEventos++;
-                cantidad--;
-                if (cantidad == 0) seccion = "";
-            }
-        } else if (seccion == "mejoras") {
-            if (numMejoras < MAX_MEJORAS) {
-                strncpy(mejoras[numMejoras].descripcion, linea.c_str(), 63);
-                numMejoras++;
-            }
-        } else if (seccion == "habitaciones") {
-            if (isdigit(linea[0]) && numHabitaciones < MAX_HABITACIONES) {
-                Habitacion& hab = habitaciones[numHabitaciones];
-                stringstream ss(linea);
-                ss >> hab.id;
-                string nombre;
-                getline(ss, nombre);
-                strncpy(hab.nombre, nombre.c_str(), 63);
-                getline(archivo, linea);
-                strncpy(hab.descripcion, linea.c_str(), 255);
-                numHabitaciones++;
-            }
-        }
-    }
-    archivo.close();
-}
-
-// ===================
-// Tu clase Jugador y resto del código sigue aquí
-// ===================
+// Clase para el jugador
 class Jugador {
 private:
     int vida;
@@ -194,71 +73,7 @@ private:
 
 public:
     Jugador(int v = 30, int a = 5, float p = 0.8f, int r = 3, int vel = 5)
-        : vida(v), ataque(a), precision(p), recuperacion(r), velocidad (vel) {}
-
-    int getVida() const { return vida; }
-    int getVidaMaxima() const { return vidaMaxima; }
-    int getAtaque() const { return ataque; }
-    float getPrecision() const { return precision; }
-    int getRecuperacion() const { return recuperacion; }
-    int getVelocidad() const { return velocidad; }
-
-    void setVida(int v) { 
-        if (v < 0) vida = 0;
-        else if (v > vidaMaxima) vida = vidaMaxima;
-        else vida = v;
-    }
-    void setAtaque(int a) { 
-        if (a >= 0) ataque = a; 
-    }
-    void setPrecision(float p) { 
-        if (p >= 0.0f && p <= 1.0f) precision = p; 
-    }
-    void setRecuperacion(int r) { 
-        if (r >= 0) recuperacion = r; 
-    }
-    void setVelocidad(int vel) { 
-        if (vel >= 0) velocidad = vel; 
-    }
-    void setVidaMaxima(int v) { 
-        if (v >= 0) vidaMaxima = v; 
-    }
-
-    void aplicarMejora(int opcion) {
-        switch(opcion) {
-            case 1: setVida(vida + 5); break;
-            case 2: setPrecision(precision + 0.1f); break;
-            case 3: setAtaque(ataque + 1); break;
-            case 4: setRecuperacion(recuperacion + 1); break;
-            case 5: setVelocidad(velocidad + 1); break;
-            default: cout << "Opción inválida." << endl; break;
-        }
-    }
-
-    // NOTA: Debes definir la clase enemigo para que esto funcione
-    /*
-    int atacar(enemigo& enemigo) const {
-        int dano = ataque;
-        if ((rand() % 100) < (precision * 100)) {
-            enemigo.recibirDano(dano);
-            return dano;
-        } else {
-            return 0;
-        }
-    }
-    */
-
-    void recuperarVida() {
-        setVida(vida + recuperacion);
-    }
-
-    void recibirDano(int dano) { 
-        setVida(vida - dano);
-    }
-
-    bool estaVivo() const { 
-        return vida > 0; 
-    }
+        : vida(v), ataque(a), precision(p), recuperacion(r), velocidad(vel) {}
 
     void mostrarEstado() const {
         cout << "====================\n";
@@ -271,26 +86,139 @@ public:
         cout << "Precisión: " << precision * 100 << "%" << endl;
         cout << "====================\n";
     }
+
+    void aplicarMejora(int opcion) {
+        switch(opcion) {
+            case 1: vida = min(vida + 5, vidaMaxima); break;
+            case 2: precision = min(precision + 0.1f, 1.0f); break;
+            case 3: ataque++; break;
+            case 4: recuperacion++; break;
+            case 5: velocidad++; break;
+            default: cout << "Opción inválida." << endl; break;
+        }
+    }
+
+    void recibirDano(int dano) {
+        vida -= dano;
+        if (vida < 0) vida = 0;
+    }
+
+    bool estaVivo() const {
+        return vida > 0;
+    }
 };
 
-// ===================
-// Ejemplo de uso en main
-// ===================
-int main() {
-    Habitacion habitaciones[MAX_HABITACIONES]; int numHabitaciones;
-    Arco arcos[MAX_ARCOS]; int numArcos;
-    Enemigo enemigos[MAX_ENEMIGOS]; int numEnemigos;
-    Evento eventos[MAX_EVENTOS]; int numEventos;
-    Mejora mejoras[MAX_MEJORAS]; int numMejoras;
+// Función para leer el archivo .map
+void leerMapa(const char* nombreArchivo, NodoHabitacion*& raizHabitaciones, NodoEnemigo*& listaEnemigos, NodoEvento*& listaEventos) {
+    ifstream archivo(nombreArchivo);
+    if (!archivo.is_open()) {
+        cout << "Error al abrir el archivo: " << nombreArchivo << endl;
+        return;
+    }
 
-    leerMap("data.map", habitaciones, numHabitaciones, arcos, numArcos, enemigos, numEnemigos, eventos, numEventos, mejoras, numMejoras);
+    string linea, seccion;
+    NodoHabitacion* ultimaHabitacion = nullptr;
+    NodoEnemigo* ultimoEnemigo = nullptr;
+    NodoEvento* ultimoEvento = nullptr;
 
-    // Aquí puedes usar los datos cargados
-    cout << "Habitaciones cargadas: " << numHabitaciones << endl;
-    cout << "Enemigos cargados: " << numEnemigos << endl;
-    cout << "Eventos cargados: " << numEventos << endl;
-    cout << "Mejoras cargadas: " << numMejoras << endl;
+    while (getline(archivo, linea)) {
+        // Eliminar espacios en blanco al inicio y al final de la línea
+        while (!linea.empty() && isspace(linea[0])) linea.erase(0, 1);
+        while (!linea.empty() && isspace(linea.back())) linea.pop_back();
+        if (linea.empty()) continue;
 
-    // ... resto de tu juego ...
-    return 0;
+        if (linea == "HABITACIONES") {
+            int cantidad;
+            archivo >> cantidad;
+            if (archivo.fail() || cantidad <= 0) {
+                cout << "Error al leer la cantidad de habitaciones.\n";
+                return;
+            }
+            archivo.ignore();
+            for (int i = 0; i < cantidad; ++i) {
+                int id;
+                char nombre[64], tipo[16], descripcion[256];
+                archivo >> id;
+                if (archivo.fail()) {
+                    cout << "Error al leer el ID de la habitación.\n";
+                    return;
+                }
+                archivo.ignore();
+                archivo.getline(nombre, 64, '(');
+                archivo.getline(tipo, 16, ')');
+                archivo.ignore();
+                archivo.getline(descripcion, 256);
+
+                NodoHabitacion* nuevaHabitacion = new NodoHabitacion(id, nombre, descripcion, tipo);
+                if (!raizHabitaciones) {
+                    raizHabitaciones = nuevaHabitacion;
+                } else {
+                    ultimaHabitacion->derecha = nuevaHabitacion;
+                }
+                ultimaHabitacion = nuevaHabitacion;
+            }
+        } else if (linea == "ENEMIGOS") {
+            int cantidad;
+            archivo >> cantidad;
+            if (archivo.fail() || cantidad <= 0) {
+                cout << "Error al leer la cantidad de enemigos.\n";
+                return;
+            }
+            archivo.ignore();
+            for (int i = 0; i < cantidad; ++i) {
+                char nombre[64];
+                int vida, ataque, velocidad;
+                float precision, probabilidad;
+                archivo.getline(nombre, 64, '|');
+                archivo >> vida >> ataque >> velocidad >> precision >> probabilidad;
+                if (archivo.fail()) {
+                    cout << "Error al leer los atributos del enemigo.\n";
+                    return;
+                }
+                archivo.ignore();
+
+                NodoEnemigo* nuevoEnemigo = new NodoEnemigo(nombre, vida, ataque, velocidad, precision, probabilidad);
+                if (!listaEnemigos) {
+                    listaEnemigos = nuevoEnemigo;
+                } else {
+                    ultimoEnemigo->siguiente = nuevoEnemigo;
+                }
+                ultimoEnemigo = nuevoEnemigo;
+            }
+        } else if (linea == "EVENTOS") {
+            int cantidad;
+            archivo >> cantidad;
+            if (archivo.fail() || cantidad <= 0) {
+                cout << "Error al leer la cantidad de eventos.\n";
+                return;
+            }
+            archivo.ignore();
+            for (int i = 0; i < cantidad; ++i) {
+                char nombre[64], descripcion[128], opcionA[64], efectoA[32], opcionB[64], efectoB[32];
+                float probabilidad;
+                archivo.getline(nombre, 64);
+                archivo >> probabilidad;
+                if (archivo.fail() || probabilidad < 0.0f || probabilidad > 1.0f) {
+                    cout << "Error al leer la probabilidad del evento.\n";
+                    return;
+                }
+                archivo.ignore();
+                archivo.getline(descripcion, 128);
+                archivo.getline(opcionA, 64);
+                archivo.getline(efectoA, 32);
+                archivo.getline(opcionB, 64);
+                archivo.getline(efectoB, 32);
+
+                NodoEvento* nuevoEvento = new NodoEvento(nombre, probabilidad, descripcion, opcionA, efectoA, opcionB, efectoB);
+                if (!listaEventos) {
+                    listaEventos = nuevoEvento;
+                } else {
+                    ultimoEvento->siguiente = nuevoEvento;
+                }
+                ultimoEvento = nuevoEvento;
+            }
+        }
+    }
+
+    archivo.close();
 }
