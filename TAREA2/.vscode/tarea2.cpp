@@ -312,28 +312,3 @@ void leerMapa(const char* nombreArchivo, Habitacion*& raizHabitaciones, Enemigo*
 
     archivo.close();
 }
-
-void mostrarArbol(Habitacion* habitacion, int nivel = 0) {
-    if (!habitacion) return;
-
-    for (int i = 0; i < nivel; ++i) cout << "  ";
-    cout << "Habitación ID: " << habitacion->id << ", Nombre: " << habitacion->nombre << ", Tipo: " << habitacion->tipo << endl;
-
-    mostrarArbol(habitacion->izquierda, nivel + 1);
-    mostrarArbol(habitacion->centro, nivel + 1);
-    mostrarArbol(habitacion->derecha, nivel + 1);
-}
-
-// Función principal
-int main() {
-    Habitacion* raizHabitaciones = nullptr;
-    Enemigo* listaEnemigos = nullptr;
-    Evento* listaEventos = nullptr;
-    Mejora* listaMejoras = nullptr;
-    Arco* listaArcos = nullptr;
-
-    leerMapa("data.map", raizHabitaciones, listaEnemigos, listaEventos, listaMejoras, listaArcos);
-    mostrarArbol(raizHabitaciones);
-
-    return 0;
-}
