@@ -1,11 +1,13 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
-#include <cstdlib>
+#include <cstdlib>   // Para rand(), srand(), atoi(), atof()
 #include <cstring>
 #include <cctype>
-#include <sstream>
+#include <ctime>     // Para time()
 using namespace std;
+
 
 // Estructuras necesarias
 struct Habitacion {
@@ -77,7 +79,7 @@ public:
 
     void mostrarEstado() const {
         cout << "====================\n";
-        cout << "Estado del Jugador:\n";
+        cout << "Tu Estado:\n";
         cout << "====================\n";
         cout << "Vida: " << vida << " / " << vidaMaxima << endl;
         cout << "Ataque: " << ataque << endl;
@@ -88,6 +90,7 @@ public:
     }
 
     void aplicarMejora(int opcion) {
+// Use switch, pq segun el discord se podia
         switch(opcion) {
             case 1: vida = min(vida + 5, vidaMaxima); break;
             case 2: precision = min(precision + 0.1f, 1.0f); break;
@@ -117,148 +120,161 @@ struct Mejora {
     }
 };
 
+// Estructura auxiliar para conexiones de habitaciones (arcos)
 struct Arco {
     int origen;
     int destino;
     Arco* siguiente;
-
-    Arco(int origen, int destino) : origen(origen), destino(destino), siguiente(nullptr) {}
+    Arco(int o, int d) : origen(o), destino(d), siguiente(nullptr) {}
 };
 
-Habitacion* buscarHabitacion(Habitacion* raiz, int id) {
-    if (!raiz) return nullptr;
-    if (raiz->id == id) return raiz;
+void conectarHabitaciones(Habitacion* raiz, Arco* listaArcos);
 
-    Habitacion* encontrada = buscarHabitacion(raiz->izquierda, id);
-    if (encontrada) return encontrada;
-
-    encontrada = buscarHabitacion(raiz->centro, id);
-    if (encontrada) return encontrada;
-
-    return buscarHabitacion(raiz->derecha, id);
-}
-
-// Función para conectar habitaciones según los arcos
-void conectarHabitaciones(Habitacion* raiz, Arco* listaArcos) {
-    while (listaArcos) {
-        Habitacion* origen = buscarHabitacion(raiz, listaArcos->origen);
-        Habitacion* destino = buscarHabitacion(raiz, listaArcos->destino);
-
-        if (origen && destino) {
-            if (!origen->izquierda) {
-                origen->izquierda = destino;
-            } else if (!origen->centro) {
-                origen->centro = destino;
-            } else if (!origen->derecha) {
-                origen->derecha = destino;
-            } else {
-                cout << "Error: No se puede conectar más de tres habitaciones desde la habitación " << origen->id << endl;
-            }
-        }
-
-        listaArcos = listaArcos->siguiente;
-    }
-}
-
-void leerMapa(const char* nombreArchivo, Habitacion*& raizHabitaciones, Enemigo*& listaEnemigos, Evento*& listaEventos, Mejora*& listaMejoras, Arco*& listaArcos) {
+/*****
+* void leerMapa
+******
+* Lee el archivo data.map y construye el árbol de habitaciones, la lista de enemigos y la lista de eventos.
+* Es robusta a cambios de orden y formato, y soporta el formato especial de eventos separado por '&'.
+******
+* Input:
+* const char* nombreArchivo: nombre del archivo a leer
+* Habitacion*& raizHabitaciones: referencia al puntero raíz del árbol de habitaciones
+* Enemigo*& listaEnemigos: referencia al puntero de la lista de enemigos
+* Evento*& listaEventos: referencia al puntero de la lista de eventos
+* Arco*& listaArcos: referencia al puntero de la lista de arcos
+******
+* Returns:
+* void, modifica los punteros por referencia
+*****/
+void leerMapa(
+    const char* nombreArchivo,
+    Habitacion*& raizHabitaciones,
+    Enemigo*& listaEnemigos,
+    Evento*& listaEventos,
+    Arco*& listaArcos
+) {
     ifstream archivo(nombreArchivo);
     if (!archivo.is_open()) {
         cout << "Error al abrir el archivo: " << nombreArchivo << endl;
         return;
     }
 
-    string linea;
+    string linea, seccion;
     Habitacion* ultimaHabitacion = nullptr;
     Enemigo* ultimoEnemigo = nullptr;
     Evento* ultimoEvento = nullptr;
-    Mejora* ultimaMejora = nullptr;
     Arco* ultimoArco = nullptr;
 
     while (getline(archivo, linea)) {
-        // Imprimir cada línea procesada
-        cout << linea << endl;
-
         // Eliminar espacios en blanco al inicio y al final de la línea
         while (!linea.empty() && isspace(linea[0])) linea.erase(0, 1);
         while (!linea.empty() && isspace(linea.back())) linea.pop_back();
         if (linea.empty()) continue;
 
+        // Sección de habitaciones
         if (linea == "HABITACIONES") {
             int cantidad;
             archivo >> cantidad;
-            cout << cantidad << endl; // Imprimir cantidad de habitaciones
             archivo.ignore();
             for (int i = 0; i < cantidad; ++i) {
-                getline(archivo, linea);
-                cout << linea << endl; // Imprimir línea de habitación
                 int id;
-                char nombre[64], tipo[16];
-                string descripcion;
+                string nombre, tipo, descripcion;
+                archivo >> id;
+                archivo.ignore();
+                getline(archivo, nombre, '(');
+                getline(archivo, tipo, ')');
+                archivo.ignore();
+                getline(archivo, descripcion);
 
-                stringstream ss(linea);
-                ss >> id;
-                ss.ignore();
-                ss.getline(nombre, 64, '(');
-                ss.getline(tipo, 16, ')');
-                ss.ignore();
+                // Eliminar espacios extra
+                while (!nombre.empty() && isspace(nombre.back())) nombre.pop_back();
+                while (!tipo.empty() && isspace(tipo.front())) tipo.erase(0, 1);
+                while (!tipo.empty() && isspace(tipo.back())) tipo.pop_back();
+                while (!descripcion.empty() && isspace(descripcion.front())) descripcion.erase(0, 1);
 
-                // Leer las líneas de descripción
-                string descLinea;
-                descripcion = "";
-                while (getline(archivo, descLinea)) {
-                    if (!descLinea.empty() && isdigit(descLinea[0])) {
-                        archivo.seekg(-descLinea.size() - 1, ios::cur); // Retroceder para procesar esta línea en el siguiente ciclo
-                        break;
-                    }
-                    cout << descLinea << endl; // Imprimir línea de descripción
-                    descripcion += descLinea + " ";
-                }
-
-                Habitacion* nuevaHabitacion = new Habitacion(id, nombre, descripcion.c_str(), tipo);
+                // Crear nueva habitación y enlazarla en una lista temporal
+                Habitacion* nueva = new Habitacion(id, nombre.c_str(), descripcion.c_str(), tipo.c_str());
                 if (!raizHabitaciones) {
-                    raizHabitaciones = nuevaHabitacion;
+                    raizHabitaciones = nueva; // La primera habitación será la raíz del árbol
                 } else {
-                    ultimaHabitacion->derecha = nuevaHabitacion;
+                    ultimaHabitacion->derecha = nueva; // Se enlazan temporalmente por derecha
                 }
-                ultimaHabitacion = nuevaHabitacion;
+                ultimaHabitacion = nueva;
             }
-        } else if (linea == "ARCOS") {
+        }
+        // Sección de arcos (conexiones entre habitaciones)
+        else if (linea == "ARCOS") {
             int cantidad;
             archivo >> cantidad;
-            cout << cantidad << endl; // Imprimir cantidad de arcos
             archivo.ignore();
             for (int i = 0; i < cantidad; ++i) {
-                getline(archivo, linea);
-                cout << linea << endl; // Imprimir línea de arco
-                int origen, destino;
-                char flecha[3];
-                stringstream ss(linea);
-                ss >> origen >> flecha >> destino;
-
-                Arco* nuevoArco = new Arco(origen, destino);
-                if (!listaArcos) {
-                    listaArcos = nuevoArco;
-                } else {
-                    ultimoArco->siguiente = nuevoArco;
+                string arcoLinea;
+                getline(archivo, arcoLinea);
+                // Formato: origen -> destino
+                size_t flecha = arcoLinea.find("->");
+                if (flecha != string::npos) {
+                    int origen = stoi(arcoLinea.substr(0, flecha));
+                    int destino = stoi(arcoLinea.substr(flecha + 2));
+                    Arco* nuevoArco = new Arco(origen, destino);
+                    if (!listaArcos) {
+                        listaArcos = nuevoArco;
+                    } else {
+                        ultimoArco->siguiente = nuevoArco;
+                    }
+                    ultimoArco = nuevoArco;
                 }
-                ultimoArco = nuevoArco;
             }
-        } else if (linea == "ENEMIGOS") {
+        }
+        // Sección de enemigos
+        else if (linea == "ENEMIGOS") {
             int cantidad;
             archivo >> cantidad;
-            cout << cantidad << endl; // Imprimir cantidad de enemigos
             archivo.ignore();
             for (int i = 0; i < cantidad; ++i) {
-                getline(archivo, linea);
-                cout << linea << endl; // Imprimir línea de enemigo
-                char nombre[64];
-                int vida, ataque, velocidad;
-                float precision, probabilidad;
-                stringstream ss(linea);
-                ss.getline(nombre, 64, '|');
-                ss >> vida >> ataque >> velocidad >> precision >> probabilidad;
+                string enemigoLinea;
+                getline(archivo, enemigoLinea);
+                cout << "Leyendo enemigo: '" << enemigoLinea << "'" << endl;
+                 if (enemigoLinea.empty()) {
+                     cout << "Línea vacía detectada, se omite." << endl; // <-- AÑADE ESTA LÍNEA
+                     continue;
+               }
 
-                Enemigo* nuevoEnemigo = new Enemigo(nombre, vida, ataque, velocidad, precision, probabilidad);
+                // Formato: Nombre | Vida X | Ataque Y | Velocidad Z| Precision K | Probabilidad P
+                stringstream ss(enemigoLinea);
+                string nombre, vidaStr, ataqueStr, velocidadStr, precisionStr, probabilidadStr;
+                getline(ss, nombre, '|');
+                getline(ss, vidaStr, '|');
+                getline(ss, ataqueStr, '|');
+                getline(ss, velocidadStr, '|');
+                getline(ss, precisionStr, '|');
+                getline(ss, probabilidadStr, '|');
+
+                // Extraer valores numéricos de cada stat
+                // Función auxiliar para extraer el número al final del string (sin istringstream)
+                // Tuve que añadir esto porque seguía dando error al leer el valor de cada stat desde el archivo .map
+                auto extraerNumero = [](const string& str) -> string {
+                    size_t i = 0;
+                    while (i < str.size() && !isdigit(str[i]) && str[i] != '-' && str[i] != '+') ++i;
+                    if (i == str.size()) return "";
+                    return str.substr(i);
+                };
+
+                string vidaNum = extraerNumero(vidaStr);
+                string ataqueNum = extraerNumero(ataqueStr);
+                string velocidadNum = extraerNumero(velocidadStr);
+                string precisionNum = extraerNumero(precisionStr);
+                string probabilidadNum = extraerNumero(probabilidadStr);
+
+                int vida = stoi(vidaNum);
+                int ataque = stoi(ataqueNum);
+                int velocidad = stoi(velocidadNum);
+                float precision = stof(precisionNum);
+                float probabilidad = stof(probabilidadNum);
+                // Eliminar espacios demás 
+                while (!nombre.empty() && isspace(nombre.back())) nombre.pop_back();
+
+                // Ahora sí, crea el enemigo con la velocidad correcta, eso faltaba antes, lo tomaba como 0 
+                Enemigo* nuevoEnemigo = new Enemigo(nombre.c_str(), vida, ataque, velocidad, precision, probabilidad);
                 if (!listaEnemigos) {
                     listaEnemigos = nuevoEnemigo;
                 } else {
@@ -266,27 +282,37 @@ void leerMapa(const char* nombreArchivo, Habitacion*& raizHabitaciones, Enemigo*
                 }
                 ultimoEnemigo = nuevoEnemigo;
             }
-        } else if (linea == "EVENTOS") {
+        }
+        // Sección de eventos
+        else if (linea == "EVENTOS") {
             int cantidad;
             archivo >> cantidad;
-            cout << cantidad << endl; // Imprimir cantidad de eventos
             archivo.ignore();
             for (int i = 0; i < cantidad; ++i) {
-                getline(archivo, linea);
-                cout << linea << endl; // Imprimir línea de evento
-                char nombre[64], descripcion[128], opcionA[64], efectoA[32], opcionB[64], efectoB[32];
-                float probabilidad;
-                stringstream ss(linea);
-                ss.getline(nombre, 64);
-                ss >> probabilidad;
-                ss.ignore();
-                ss.getline(descripcion, 128);
-                ss.getline(opcionA, 64);
-                ss.getline(efectoA, 32);
-                ss.getline(opcionB, 64);
-                ss.getline(efectoB, 32);
+                // Cada evento comienza con un '&'
+                string separador;
+                getline(archivo, separador);
+                if (separador != "&") continue; // Saltar si no es un evento válido
 
-                Evento* nuevoEvento = new Evento(nombre, probabilidad, descripcion, opcionA, efectoA, opcionB, efectoB);
+                string nombre, probabilidadStr, descripcion, opcionA, efectoA, opcionB, efectoB;
+                getline(archivo, nombre);
+                getline(archivo, probabilidadStr);
+                getline(archivo, descripcion);
+                getline(archivo, opcionA);
+                getline(archivo, efectoA);
+                getline(archivo, opcionB);
+                getline(archivo, efectoB);
+
+                // Extraer probabilidad
+                float probabilidad = 0.0f;
+                size_t pos = probabilidadStr.find(' ');
+                if (pos != string::npos)
+                    probabilidad = stof(probabilidadStr.substr(pos + 1));
+
+                Evento* nuevoEvento = new Evento(
+                    nombre.c_str(), probabilidad, descripcion.c_str(),
+                    opcionA.c_str(), efectoA.c_str(), opcionB.c_str(), efectoB.c_str()
+                );
                 if (!listaEventos) {
                     listaEventos = nuevoEvento;
                 } else {
@@ -294,21 +320,83 @@ void leerMapa(const char* nombreArchivo, Habitacion*& raizHabitaciones, Enemigo*
                 }
                 ultimoEvento = nuevoEvento;
             }
-        } else if (linea == "MEJORAS DE COMBATE") {
-            while (getline(archivo, linea) && linea != "FIN DE ARCHIVO") {
-                cout << linea << endl; // Imprimir línea de mejora
-                Mejora* nuevaMejora = new Mejora(linea.c_str());
-                if (!listaMejoras) {
-                    listaMejoras = nuevaMejora;
-                } else {
-                    ultimaMejora->siguiente = nuevaMejora;
-                }
-                ultimaMejora = nuevaMejora;
-            }
-        } else if (linea == "FIN DE ARCHIVO") {
-            cout << linea << endl; // Imprimir "FIN DE ARCHIVO"
         }
     }
-
     archivo.close();
+    // Conectar habitaciones según los arcos
+    if (listaArcos) {
+        conectarHabitaciones(raizHabitaciones, listaArcos);
+    }
 }
+
+// Busca una habitación por ID en el árbol ternario
+// Se usa para encontrar el nodo de origen y destino al conectar habitaciones
+Habitacion* buscarHabitacion(Habitacion* raiz, int id) {
+    if (!raiz) return nullptr;
+    if (raiz->id == id) return raiz;
+    Habitacion* encontrada = buscarHabitacion(raiz->izquierda, id);
+    if (encontrada) return encontrada;
+    encontrada = buscarHabitacion(raiz->centro, id);
+    if (encontrada) return encontrada;
+    return buscarHabitacion(raiz->derecha, id);
+}
+
+// Conecta las habitaciones usando la lista de arcos para formar el árbol ternario
+// Cada habitación puede tener hasta 3 hijos: izquierda, centro y derecha
+void conectarHabitaciones(Habitacion* raiz, Arco* listaArcos) {
+    while (listaArcos) {
+        Habitacion* origen = buscarHabitacion(raiz, listaArcos->origen);
+        Habitacion* destino = buscarHabitacion(raiz, listaArcos->destino);
+        if (origen && destino) {
+            // Inserta destino en el primer puntero libre (izquierda, centro, derecha)
+            if (!origen->izquierda)
+                origen->izquierda = destino;
+            else if (!origen->centro)
+                origen->centro = destino;
+            else if (!origen->derecha)
+                origen->derecha = destino;
+            // Si ya tiene 3 hijos, no conecta más
+        }
+        listaArcos = listaArcos->siguiente;
+    }
+}
+// -------------------- Función para mostrar las habitaciones --------------------
+
+
+void mostrarHabitaciones(Habitacion* h) {
+    if (!h) return;
+    cout << "ID: " << h->id << " | Nombre: " << h->nombre << " | Tipo: " << h->tipo << endl;
+    mostrarHabitaciones(h->izquierda);
+    mostrarHabitaciones(h->centro);
+    mostrarHabitaciones(h->derecha);
+}
+
+// -------------------- MAIN --------------------
+int main() {
+    // srand(time(0)) inicializa la semilla del generador de números aleatorios.
+    // Esto es fundamental para que cada vez que ejecutes el programa, rand() produzca secuencias diferentes.
+    // Si no llamas a srand(time(0)), rand() siempre dará la misma secuencia de números cada vez que ejecutes el programa.
+    srand(time(0));
+
+    Habitacion* raizHabitaciones = nullptr;
+    Enemigo* listaEnemigos = nullptr;
+    Evento* listaEventos = nullptr;
+    Arco* listaArcos = nullptr;
+
+    // Cargar el mapa desde el archivo
+    leerMapa("data.map", raizHabitaciones, listaEnemigos, listaEventos, listaArcos);
+
+    if (!raizHabitaciones) {
+        cout << "No se pudo cargar el mapa. :´[ ." << endl;
+        return 1;
+    }
+
+    // Crear "jugador"
+    Jugador jugador;
+
+    // Mostrar estado inicial del pokemon que somos que no me acuerdo cual iba a ser
+    jugador.mostrarEstado();
+
+    return 0;
+}
+
