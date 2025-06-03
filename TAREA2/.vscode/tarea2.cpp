@@ -120,7 +120,7 @@ struct Mejora {
     }
 };
 
-// Estructura auxiliar para conexiones de habitaciones (arcos)
+// Estructura de los arcos
 struct Arco {
     int origen;
     int destino;
@@ -202,7 +202,7 @@ void leerMapa(
                 ultimaHabitacion = nueva;
             }
         }
-        // Sección de arcos (conexiones entre habitaciones)
+        // Sección de conexiones entre habitaciones
         else if (linea == "ARCOS") {
             int cantidad;
             archivo >> cantidad;
@@ -234,10 +234,6 @@ void leerMapa(
                 string enemigoLinea;
                 getline(archivo, enemigoLinea);
                 cout << "Leyendo enemigo: '" << enemigoLinea << "'" << endl;
-                 if (enemigoLinea.empty()) {
-                     cout << "Línea vacía detectada, se omite." << endl; // <-- AÑADE ESTA LÍNEA
-                     continue;
-               }
 
                 // Formato: Nombre | Vida X | Ataque Y | Velocidad Z| Precision K | Probabilidad P
                 stringstream ss(enemigoLinea);
@@ -329,7 +325,7 @@ void leerMapa(
     }
 }
 
-// Busca una habitación por ID en el árbol ternario
+// Busca una habitación por ID en el árbol
 // Se usa para encontrar el nodo de origen y destino al conectar habitaciones
 Habitacion* buscarHabitacion(Habitacion* raiz, int id) {
     if (!raiz) return nullptr;
@@ -360,7 +356,7 @@ void conectarHabitaciones(Habitacion* raiz, Arco* listaArcos) {
         listaArcos = listaArcos->siguiente;
     }
 }
-// -------------------- Función para mostrar las habitaciones --------------------
+// Función para mostrar las habitaciones
 
 
 void mostrarHabitaciones(Habitacion* h) {
@@ -371,11 +367,10 @@ void mostrarHabitaciones(Habitacion* h) {
     mostrarHabitaciones(h->derecha);
 }
 
-// -------------------- MAIN --------------------
 int main() {
     // srand(time(0)) inicializa la semilla del generador de números aleatorios.
     // Esto es fundamental para que cada vez que ejecutes el programa, rand() produzca secuencias diferentes.
-    // Si no llamas a srand(time(0)), rand() siempre dará la misma secuencia de números cada vez que ejecutes el programa.
+    // Si no llamas a srand(time(0)), rand() siempre dará la misma secuencia de números cada vez que  el programa se ejecute.
     srand(time(0));
 
     Habitacion* raizHabitaciones = nullptr;
