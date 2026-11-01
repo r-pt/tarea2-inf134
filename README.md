@@ -58,5 +58,5 @@ Ejecutar desde la carpeta donde está `data.map`, porque el programa lo abre con
 - Hay rutas configuradas solo para Windows (`C:\msys64\...`), así que en otros sistemas operativos será necesario cambiar `settings.json`, `tasks.json` y `c_cpp_properties.json`.
 - `test.cpp` sirve únicamente para verificar que el compilador funciona.
 
-## Autor
+## Autores
 R. Palma J. Bravo
